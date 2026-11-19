@@ -12,9 +12,10 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "1to50-game-data",
-      "database_id": "TODO-CREATE-BELOW",
-      "migrations_dir": "migrations"
+      "database_name": "game-data",
+      "database_id": "ff27b9a0-e9b8-484e-b6cb-d04d2c601ed8",
+      "migrations_dir": "migrations",
+      "migrations_table": "one_to_fifty_migrations"
     }
   ],
   "observability": {

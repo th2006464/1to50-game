@@ -23,7 +23,7 @@
 │   ├── manifest.webmanifest + service-worker.js   # PWA
 │   └── icons/
 ├── src/index.js         # Worker:/api/score 提交成绩、/api/leaderboard 排行榜
-├── migrations/          # D1 表结构(scores)
+├── migrations/          # D1 表结构(one_to_fifty_scores)
 └── wrangler.jsonc       # Cloudflare 配置(自定义域名 1to50.game.foxtang.com)
 ```
 
@@ -38,9 +38,10 @@ npx wrangler dev      # http://localhost:8787,本地含 D1 模拟
 
 ## 部署
 
+使用与其他游戏共用的 D1 数据库 `game-data`，本游戏使用独立的成绩表和迁移记录表。
+
 ```bash
-npx wrangler d1 create 1to50-game-data   # 首次:建库,把返回的 database_id 填进 wrangler.jsonc
-npx wrangler d1 migrations apply 1to50-game-data --remote
+npx wrangler d1 migrations apply game-data --remote
 npx wrangler deploy
 ```
 

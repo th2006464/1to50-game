@@ -22,7 +22,7 @@ export default {
         const { results } = await env.DB.prepare(`
           SELECT id AS recordId, player_name AS playerName, time_seconds AS timeSeconds,
                  recorded_at AS recordedAt
-          FROM scores
+          FROM one_to_fifty_scores
           ORDER BY time_seconds ASC, recorded_at ASC
           LIMIT 50
         `).all();
@@ -39,11 +39,11 @@ export default {
           return json({ ok: false, error: 'invalid timeSeconds' }, { status: 400 });
 
         await env.DB.prepare(`
-          INSERT INTO scores (client_id, player_name, time_seconds) VALUES (?, ?, ?)
+          INSERT INTO one_to_fifty_scores (client_id, player_name, time_seconds) VALUES (?, ?, ?)
         `).bind(body.clientId, cleanName(body.playerName), t).run();
 
         const { count } = await env.DB.prepare(`
-          SELECT COUNT(*) AS count FROM scores WHERE time_seconds < ?
+          SELECT COUNT(*) AS count FROM one_to_fifty_scores WHERE time_seconds < ?
         `).bind(t).first();
         return json({ ok: true, rank: count + 1 });
       }

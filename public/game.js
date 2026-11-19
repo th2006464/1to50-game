@@ -63,7 +63,7 @@ let best = parseFloat(localStorage.getItem("1to50.best")) || null;
 /* ---------- 云端排行(原版 RankWorldLayer;本地 best 对应 RankLocalLayer) ---------- */
 const clientId =
   localStorage.getItem("1to50.clientId") ||
-  localStorage.setItem("1to50.clientId", crypto.randomUUID()) ||
+  localStorage.setItem("1to50.clientId", (crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, "0")).join(""))) ||
   localStorage.getItem("1to50.clientId");
 
 async function submitScore(timeSeconds) {
@@ -90,8 +90,8 @@ async function doSubmit(name, timeSeconds) {
       body: JSON.stringify({ clientId, playerName: name, timeSeconds }),
     });
     const d = await r.json();
-    if (d.ok) $("go-rank").textContent = `世界排名 #${d.rank}`;
-  } catch (e) { /* 离线时静默,本地记录仍有效 */ }
+    $("go-rank").textContent = d.ok ? `世界排名 #${d.rank}` : "成绩提交失败";
+  } catch (e) { $("go-rank").textContent = "离线，成绩未上传"; }
 }
 
 async function showLeaderboard() {
@@ -100,9 +100,18 @@ async function showLeaderboard() {
   list.innerHTML = "<li>加载中…</li>";
   try {
     const d = await (await fetch("/api/leaderboard")).json();
-    list.innerHTML = d.ok && d.entries.length
-      ? d.entries.map((e) => `<li><span class="rn">${e.playerName}</span><span class="rt">${fmt(e.timeSeconds)} s</span></li>`).join("")
-      : "<li>还没有人通关,来当第一个!</li>";
+    list.replaceChildren();
+    if (!d.ok) throw new Error("排行榜加载失败");
+    if (!d.entries.length) list.innerHTML = "<li>还没有人通关,来当第一个!</li>";
+    d.entries.forEach((entry, index) => {
+      const item = document.createElement("li");
+      const name = document.createElement("span");
+      const time = document.createElement("span");
+      name.className = "rn"; time.className = "rt";
+      name.textContent = `${index + 1}. ${entry.playerName}`;
+      time.textContent = `${fmt(entry.timeSeconds)} s`;
+      item.append(name, time); list.appendChild(item);
+    });
   } catch (e) { list.innerHTML = "<li>网络不可用</li>"; }
 }
 
@@ -120,6 +129,12 @@ function beep(freq, dur, type = "sine", gain = 0.15) {
     o.start(); o.stop(actx.currentTime + dur);
   } catch (e) { /* 无音频环境时静默 */ }
 }
+document.addEventListener("pointerdown", () => {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+  } catch (e) { /* 音频不可用时继续游戏 */ }
+}, { once: true });
 const sndHit  = () => beep(880, 0.09, "triangle");       // 原版 Play(1)
 const sndMiss = () => beep(160, 0.15, "square", 0.08);
 const sndWin  = () => {                                   // 原版 GameOver → Play(6) 结算音
@@ -220,7 +235,7 @@ function onTap(tile) {
 
     addQuestion();
     renderQueue();
-    if (isLast) { setTimeout(gameOver, 450); }
+    if (isLast) { gameOver(); }
   } else {
     tile.el.classList.remove("miss");
     void tile.el.offsetWidth;
@@ -296,8 +311,7 @@ function gameOver(isWin = true) {
     bestEl.textContent = fmt(best);
   }
 
-  // 3 秒后弹结算框(对应原版 DelayModifier(3.0f));同时提交世界排行。
-  // 注意:rank 显示的清空必须发生在提交之前,否则会覆盖迟到的排名结果。
+  // 清空排名提示后再提交，避免覆盖异步返回的结果。
   $("go-rank").textContent = "";
   submitScore(timeFrozen);
   setTimeout(() => {

@@ -25,7 +25,8 @@ body {
   background: var(--bg);
   color: var(--ink);
   display: flex; align-items: center; justify-content: center;
-  user-select: none; touch-action: manipulation;
+  -webkit-user-select: none; user-select: none; touch-action: manipulation;
+  min-height: 100vh; min-height: 100dvh;
 }
 
 #app {
@@ -315,3 +316,7 @@ body {
   cursor: pointer;
 }
 #btn-submit-name:active { transform: translateY(2px); }
+
+#rank-list { -webkit-overflow-scrolling: touch; min-height: 0; }
+#rank-list .rt { flex-shrink: 0; margin-left: 12px; }
+@media (max-height: 650px) { #app { width: min(92vw, 58vh, 460px); gap: 8px; padding: 8px 0; } #board { gap: 6px; } #queue-wrap { min-height: 60px; } #queue-current { width: 56px; height: 56px; font-size: 28px; } }
