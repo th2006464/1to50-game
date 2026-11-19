@@ -23,6 +23,7 @@ export default {
           SELECT id AS recordId, player_name AS playerName, time_seconds AS timeSeconds,
                  recorded_at AS recordedAt
           FROM one_to_fifty_scores
+          ${url.searchParams.get("period") === "today" ? "WHERE recorded_at >= datetime('now', '+8 hours', 'start of day', '-8 hours') AND recorded_at < datetime('now', '+8 hours', 'start of day', '+1 day', '-8 hours')" : ""}
           ORDER BY time_seconds ASC, recorded_at ASC
           LIMIT 50
         `).all();

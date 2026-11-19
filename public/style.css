@@ -322,3 +322,10 @@ body {
 #rank-list { -webkit-overflow-scrolling: touch; min-height: 0; }
 #rank-list .rt { flex-shrink: 0; margin-left: 12px; }
 @media (max-height: 650px) { #app { width: min(92vw, 58vh, 460px); gap: 8px; padding: 8px 0; } #board { gap: 6px; } #queue-wrap { min-height: 60px; } #queue-current { width: 56px; height: 56px; font-size: 28px; } }
+
+#rank-filters { display: flex; gap: 8px; }
+#rank-filters button { flex: 1; padding: 7px; border: 2px solid var(--cyan-border); border-radius: 10px; background: var(--bg-deep); color: var(--cyan); cursor: pointer; }
+#rank-filters button.active { background: var(--cyan-bright); color: var(--bg-deep); }
+#rank-list li > div { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+#rank-list .rank-date { font-size: 11px; color: #9ebfc2; font-weight: 400; }
+#rank-list li { align-items: center; padding: 4px 0; }

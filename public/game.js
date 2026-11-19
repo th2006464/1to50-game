@@ -94,25 +94,43 @@ async function doSubmit(name, timeSeconds) {
   } catch (e) { $("go-rank").textContent = "离线，成绩未上传"; }
 }
 
-async function showLeaderboard() {
+let leaderboardRequest = 0;
+async function showLeaderboard(period = "all") {
+  // Click event handlers pass an Event rather than a period.
+  if (period !== "today") period = "all";
+  const requestId = ++leaderboardRequest;
   const modal = $("rank-modal"), list = $("rank-list");
   modal.classList.add("show");
+  for (const name of ["all", "today"]) {
+    const button = $(`rank-${name}`);
+    button.classList.toggle("active", name === period);
+    button.setAttribute("aria-pressed", String(name === period));
+  }
   list.innerHTML = "<li>加载中…</li>";
   try {
-    const d = await (await fetch("/api/leaderboard")).json();
+    const d = await (await fetch(`/api/leaderboard${period === "today" ? "?period=today" : ""}`)).json();
+    if (requestId !== leaderboardRequest) return;
     list.replaceChildren();
     if (!d.ok) throw new Error("排行榜加载失败");
-    if (!d.entries.length) list.innerHTML = "<li>还没有人通关,来当第一个!</li>";
+    if (!d.entries.length) list.innerHTML = `<li>${period === "today" ? "今天还没有成绩" : "还没有人通关，来当第一个！"}</li>`;
     d.entries.forEach((entry, index) => {
       const item = document.createElement("li");
+      const details = document.createElement("div");
       const name = document.createElement("span");
+      const date = document.createElement("time");
       const time = document.createElement("span");
-      name.className = "rn"; time.className = "rt";
+      name.className = "rn"; time.className = "rt"; date.className = "rank-date";
       name.textContent = `${index + 1}. ${entry.playerName}`;
+      // SQLite datetime('now') is UTC, even when it has no explicit suffix.
+      const raw = String(entry.recordedAt || "");
+      const parsed = new Date(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(raw) ? raw.replace(" ", "T") + "Z" : raw);
+      date.textContent = Number.isNaN(parsed.valueOf()) ? "时间未知" : new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).format(parsed);
       time.textContent = `${fmt(entry.timeSeconds)} s`;
-      item.append(name, time); list.appendChild(item);
+      details.append(name, date); item.append(details, time); list.appendChild(item);
     });
-  } catch (e) { list.innerHTML = "<li>网络不可用</li>"; }
+  } catch (e) {
+    if (requestId === leaderboardRequest) list.innerHTML = "<li>网络不可用</li>";
+  }
 }
 
 /* ---------- 音效(WebAudio 合成,替代原版 SoundModule) ---------- */
@@ -359,6 +377,8 @@ $("btn-restart").addEventListener("click", () => { initGame(); readyCountdown();
 $("btn-again").addEventListener("click", () => { initGame(); readyCountdown(); });
 $("btn-rank").addEventListener("click", showLeaderboard);
 $("btn-menu-rank").addEventListener("click", showLeaderboard);
+$("rank-all").addEventListener("click", () => showLeaderboard("all"));
+$("rank-today").addEventListener("click", () => showLeaderboard("today"));
 $("btn-rank-close").addEventListener("click", () => $("rank-modal").classList.remove("show"));
 
 /* 设置弹窗:音效 / 震动(对应原版 DataMgr.m_bSound / m_bVibration) */
