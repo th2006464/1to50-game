@@ -147,15 +147,35 @@ function beep(freq, dur, type = "sine", gain = 0.15) {
     o.start(); o.stop(actx.currentTime + dur);
   } catch (e) { /* 无音频环境时静默 */ }
 }
-document.addEventListener("pointerdown", () => {
+const soundBuffers = new Map();
+let soundPreparation;
+
+function prepareSounds() {
+  if (!settings.sound) return;
   try {
-    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    if (actx.state === "suspended") actx.resume();
-  } catch (e) { /* 音频不可用时继续游戏 */ }
-}, { once: true });
-// 原版 APK 中的音效；每次创建播放实例以支持连续点击。
+    actx ??= new (window.AudioContext || window.webkitAudioContext)({ latencyHint: "interactive" });
+    if (actx.state !== "running") actx.resume().catch(() => {});
+    soundPreparation ??= Promise.all(["o", "x", "ready", "go", "end"].map(async (name) => {
+      const response = await fetch(`/sounds/${name}.mp3`);
+      if (!response.ok) return;
+      const buffer = await actx.decodeAudioData(await response.arrayBuffer());
+      soundBuffers.set(name, buffer);
+    })).catch(() => { soundPreparation = undefined; });
+  } catch {
+    // Browsers without Web Audio can still use the media element below.
+  }
+}
+
 function playSound(name) {
   if (!settings.sound) return;
+  const buffer = soundBuffers.get(name);
+  if (buffer && actx.state === "running") {
+    const source = actx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(actx.destination);
+    source.start();
+    return;
+  }
   const audio = new Audio(`/sounds/${name}.mp3`);
   audio.play().catch(() => {});
 }
@@ -283,6 +303,7 @@ function maybeHelp() {
 
 /* ---------- 倒计时(复刻 Ready1/2/3/Start) ---------- */
 async function readyCountdown() {
+  prepareSounds();
   overlayEl.classList.add("show");
   gameoverEl.classList.remove("show");
   for (const s of ["3", "2", "1", "GO!"]) {
@@ -392,7 +413,10 @@ function bindToggle(id, key) {
     settings[key] = !settings[key];
     el.classList.toggle("on", settings[key]);
     saveSettings();
-    if (key === "sound" && settings.sound) beep(880, 0.08, "triangle");  // 开启时给个反馈音
+    if (key === "sound" && settings.sound) {
+      prepareSounds();
+      beep(880, 0.08, "triangle");
+    }
   });
 }
 bindToggle("toggle-sound", "sound");
