@@ -47,13 +47,22 @@ GameScene / AnswerNode / QuestionNode / QuestionMgr / DataMgr / TimeScore / Star
 ### DataMgr.GetStarCount — ev_b8fafc6c…(逐字还原)
 - >65s=0星;>60=1;>55=2;>50=3;>45=4;>40=5;>35=6;>30=7;>25=8;>20=9;≤20s=10星
 
-### 视觉风格 — assets/Resources/game.png(仅取色参考,未复制资源)
-- 米白底 ≈#F7F4EC;格子珊瑚红渐变 ≈#F97070→#E85A5A、深红描边 ≈#D94040、大圆角、果冻质感
-- 数字深色带白高光(气泡字);当前目标青色框 ≈#4DE8D8 浅青底;后续队列为青色空心描边字
-- 金星 ≈#FFC93C
+### GameScene.Tick — ev_d06fb077…
+- 计时累加;**>300s → GameOver(false) 超时判负**
+- **帮助亮光**:距上次正确点击(m_fHelpLightTime)≥ **2.0s** 且本段未用过(m_bHelpLightUse)→ `HelpOn()`;每次正确点击重置两值(onSceneTouchEvent)
+
+### AnswerNode.Light — ev_fbb2b6f…
+- 帮助亮光为叠加在格子上的独立发光层(m_pLight):
+  无限循环 0.5s 淡入(alpha 0→1)+ 放大(scale 1→**1.05**)→ 0.5s 淡出回 1.0
+- ReMake 时隐藏并清除(点到该格即熄灭)
+
+### 视觉风格 — assets/Resources/game.png(复核更正)
+- 首次分析误判为米白底+珊瑚红格子;**复核确认红色数字仅为答错态变体**,
+  默认 UI 为暗系青蓝(与用户对原版的记忆一致):
+  暗青格子框 ≈#2F8F8C/#3D9C99、亮青数字 ≈#7EE7E0 白描边、
+  高亮态格子亮青填充 ≈#9FF5EF、无背景贴图(引擎色,复刻取深青蓝 #14323D)
 
 ## 推断项(无直接证据,复刻时为设计选择)
 
 - 音效使用 WebAudio 合成音,未提取原版权益资源(版权原因刻意不复刻)
-- 原版 `AnswerNode.Light()`/`HelpOn` 的帮助高亮触发条件未反编译;复刻早期版本曾按"停顿 5 秒高亮目标"实现,因观感异常(格子看似变大)且无证据支撑,已移除
 

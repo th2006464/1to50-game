@@ -9,12 +9,16 @@
  *  - 设置:音效/震动开关,持久化                    (DataMgr.m_bSound/m_bVibration + LoadData/SaveData)
  *  - 星星:>65s=0,每快5s+1,≤20s=10                 (DataMgr.GetStarCount,逐字还原)
  *  - 主菜单:原版 MainScene,开始前可准备,点了才倒计时
+ *  - 帮助亮光:2s 无正确点击触发,亮光层呼吸循环      (GameScene.Tick + AnswerNode.Light)
+ *    (0.5s 淡入放大至1.05 → 0.5s 淡出,循环至点中该格)
+ *  - 超时:300s 判负回主菜单                        (GameScene.Tick)
  * 未取证的设计选择:音效音色(WebAudio 合成)。
- * 注:早期版本的"停顿高亮目标格"系无证据推断,且观感异常(格子看似变大),已移除。
  */
 "use strict";
 
 const SIZE = 5, TOTAL = 50, TARGET_QUEUE_LEN = 5;
+const HELP_DELAY = 2.0;          // 原版 Tick:距上次正确点击 ≥2.0s 触发 HelpOn()
+const TIME_LIMIT = 300.0;        // 原版 Tick:m_fTime > 300 → GameOver(false) 超时判负
 
 /* 星星数(逐字复刻 DataMgr.GetStarCount):>65→0,每快5秒+1,≤20→10 */
 function getStarCount(t) {
@@ -53,7 +57,7 @@ let queue = [];          // 问题节点 {value, answered}(原版 m_pQuestion)
 let nextNumber = 1;      // 原版 m_iNextNumber
 let playing = false;
 let timeStart = 0, timeFrozen = 0;
-let lastHitAt = 0;   // 保留字段便于后续复用(如统计节奏),不驱动任何 UI
+let lastHitAt = 0, helpShown = false;   // 原版 m_fHelpLightTime / m_bHelpLightUse
 let best = parseFloat(localStorage.getItem("1to50.best")) || null;
 
 /* ---------- 云端排行(原版 RankWorldLayer;本地 best 对应 RankLocalLayer) ---------- */
@@ -173,7 +177,7 @@ function renderQueue() {
 function initGame() {
   tiles = []; used = new Array(TOTAL + 2).fill(false);
   queue = []; nextNumber = 1;
-  playing = false; timeFrozen = 0;
+  playing = false; timeFrozen = 0; helpShown = false;
   boardEl.innerHTML = "";
   for (let i = 0; i < SIZE * SIZE; i++) {
     const el = document.createElement("div");
@@ -199,7 +203,9 @@ function onTap(tile) {
 
   if (tile.value === q.value) {
     q.answered = true;
-    lastHitAt = now();
+    lastHitAt = now();            // 原版:m_fHelpLightTime = 当前时间
+    clearHelp();                  // 原版 ReMake:m_pLight 隐藏并清除动画
+    helpShown = false;            // 原版:m_bHelpLightUse = false
 
     const isLast = q.value === TOTAL;
     const nt = tile.value;
@@ -224,6 +230,21 @@ function onTap(tile) {
   }
 }
 
+/* ---------- 帮助亮光(复刻 Tick + AnswerNode.Light):
+   2s 无正确点击触发;亮光层叠加在目标格上,1s 周期呼吸(0.5s 淡入放大至1.05
+   → 0.5s 淡出回 1.0),循环直到该格被点中。不外扩、不改格子实际尺寸。 ---------- */
+function clearHelp() {
+  document.querySelectorAll(".tile.help").forEach((t) => t.classList.remove("help"));
+}
+function maybeHelp() {
+  if (!playing || helpShown) return;
+  if (now() - lastHitAt < HELP_DELAY) return;
+  const q = currentQuestion();
+  if (!q) return;
+  const hit = tiles.find((t) => t.value === q.value);
+  if (hit) { hit.el.classList.add("help"); helpShown = true; }
+}
+
 /* ---------- 倒计时(复刻 Ready1/2/3/Start) ---------- */
 async function readyCountdown() {
   overlayEl.classList.add("show");
@@ -243,11 +264,30 @@ async function readyCountdown() {
   lastHitAt = now();
 }
 
-/* ---------- 结束(复刻 GameOver(true):淡入 → 3s 后结算) ---------- */
-function gameOver() {
+/* ---------- 结束(复刻 GameOver:超时判负 / 通关结算) ---------- */
+function gameOver(isWin = true) {
   playing = false;
   timeFrozen = now() - timeStart;
+  clearHelp();
   sndWin();                       // 原版 GameOver → SoundModule.Play(6)
+
+  if (!isWin) {
+    // 原版 Tick:m_fTime > 300 → GameOver(false) → 3s 后 ChangeMainScene
+    $("go-text").textContent = "TIME OVER";
+    $("go-time").textContent = `${fmt(TIME_LIMIT)} s`;
+    $("go-stars").innerHTML = "";
+    $("go-record").textContent = "";
+    $("go-rank").textContent = "";
+    $("go-name-row").classList.remove("show");
+    overlayEl.classList.add("show");
+    countdownEl.classList.remove("show");
+    gameoverEl.classList.add("show");
+    setTimeout(() => {
+      if (!playing && $("go-text").textContent === "TIME OVER")
+        showMenu();
+    }, 3000);
+    return;
+  }
 
   const isRecord = best === null || timeFrozen < best;
   if (isRecord) {
@@ -273,10 +313,13 @@ function gameOver() {
   }, 3000);
 }
 
-/* ---------- 主循环 ---------- */
+/* ---------- 主循环(复刻 GameScene.Tick) ---------- */
 setInterval(() => {
   if (playing) {
-    timerEl.textContent = fmt(elapsed());
+    const t = elapsed();
+    timerEl.textContent = fmt(t);
+    if (t > TIME_LIMIT) { gameOver(false); return; }   // 原版:300s 判负
+    maybeHelp();                                        // 原版:2s 无操作亮起目标
   }
 }, 31);   // ≈1/30s,匹配百分秒显示刷新
 
