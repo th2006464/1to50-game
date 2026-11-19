@@ -1,0 +1,13 @@
+{
+  "name": "1to50",
+  "short_name": "1to50",
+  "description": "按 1→50 顺序点击的经典反应小游戏",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f2f0eb",
+  "theme_color": "#ffa726",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

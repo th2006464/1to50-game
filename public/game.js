@@ -30,6 +30,41 @@ let timeStart = 0, timeFrozen = 0;
 let lastHitAt = 0, helpShown = false;
 let best = parseFloat(localStorage.getItem("1to50.best")) || null;
 
+/* ---------- 云端排行(原版 RankWorldLayer;本地 best 对应 RankLocalLayer) ---------- */
+const clientId =
+  localStorage.getItem("1to50.clientId") ||
+  localStorage.setItem("1to50.clientId", crypto.randomUUID()) ||
+  localStorage.getItem("1to50.clientId");
+
+async function submitScore(timeSeconds) {
+  let name = localStorage.getItem("1to50.name");
+  if (!name) {
+    name = (prompt("上榜昵称(最多16字):", "匿名玩家") || "匿名玩家").slice(0, 16);
+    localStorage.setItem("1to50.name", name);
+  }
+  try {
+    const r = await fetch("/api/score", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clientId, playerName: name, timeSeconds }),
+    });
+    const d = await r.json();
+    if (d.ok) $("go-rank").textContent = `世界排名 #${d.rank}`;
+  } catch (e) { /* 离线时静默,本地记录仍有效 */ }
+}
+
+async function showLeaderboard() {
+  const modal = $("rank-modal"), list = $("rank-list");
+  modal.classList.add("show");
+  list.innerHTML = "<li>加载中…</li>";
+  try {
+    const d = await (await fetch("/api/leaderboard")).json();
+    list.innerHTML = d.ok && d.entries.length
+      ? d.entries.map((e) => `<li><span class="rn">${e.playerName}</span><span class="rt">${fmt(e.timeSeconds)} s</span></li>`).join("")
+      : "<li>还没有人通关,来当第一个!</li>";
+  } catch (e) { list.innerHTML = "<li>网络不可用</li>"; }
+}
+
 /* ---------- 音效(WebAudio 合成,替代原版 SoundModule) ---------- */
 let actx = null;
 function beep(freq, dur, type = "sine", gain = 0.15) {
@@ -194,7 +229,8 @@ function gameOver() {
     bestEl.textContent = fmt(best);
   }
 
-  // 3 秒后弹结算框(对应原版 DelayModifier(3.0f))
+  // 3 秒后弹结算框(对应原版 DelayModifier(3.0f));同时提交世界排行
+  submitScore(timeFrozen);
   setTimeout(() => {
     $("go-text").textContent = "FINISH!";
     $("go-time").textContent = `${fmt(timeFrozen)} s`;
@@ -202,6 +238,7 @@ function gameOver() {
     $("go-stars").innerHTML =
       (isRecord ? `<span class="star">⭐</span>`.repeat(stars) : "⭐".repeat(stars));
     $("go-record").textContent = isRecord ? "新纪录!" : "";
+    $("go-rank").textContent = "";
     overlayEl.classList.add("show");
     countdownEl.classList.remove("show");
     gameoverEl.classList.add("show");
@@ -219,6 +256,8 @@ setInterval(() => {
 /* ---------- 入口 ---------- */
 $("btn-restart").addEventListener("click", () => { initGame(); readyCountdown(); });
 $("btn-again").addEventListener("click", () => { initGame(); readyCountdown(); });
+$("btn-rank").addEventListener("click", showLeaderboard);
+$("btn-rank-close").addEventListener("click", () => $("rank-modal").classList.remove("show"));
 
 initGame();
 readyCountdown();

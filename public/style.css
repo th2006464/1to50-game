@@ -37,7 +37,8 @@ body {
   font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums;
   letter-spacing: 1px;
 }
-#btn-restart {
+#hud-btns { display: flex; gap: 8px; }
+#btn-restart, #btn-rank {
   width: 40px; height: 40px; border: none; border-radius: 50%;
   background: #fff; box-shadow: 0 2px 0 var(--tile-shadow);
   font-size: 20px; color: var(--ink); cursor: pointer;
@@ -164,3 +165,34 @@ body {
   cursor: pointer;
 }
 #btn-again:active { transform: translateY(3px); box-shadow: none; }
+
+/* ---- 世界排行榜(原版 RankWorldLayer) ---- */
+#go-rank { color: #2e7d32; font-weight: 700; min-height: 20px; }
+#rank-modal {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  display: none;
+  align-items: center; justify-content: center;
+  z-index: 10;
+}
+#rank-modal.show { display: flex; }
+#rank-panel {
+  width: min(88vw, 360px);
+  max-height: 70vh;
+  background: #fff; border-radius: 16px;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.25);
+}
+#rank-title { font-size: 20px; font-weight: 800; text-align: center; }
+#rank-list {
+  overflow-y: auto; list-style-position: inside;
+  display: flex; flex-direction: column; gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+#rank-list li { display: flex; justify-content: space-between; font-size: 15px; }
+#rank-list .rn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#btn-rank-close {
+  padding: 10px; border: none; border-radius: 10px;
+  background: var(--bg); font-size: 15px; cursor: pointer;
+}
