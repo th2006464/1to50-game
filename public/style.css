@@ -76,8 +76,9 @@ body {
   font-size: clamp(24px, 8vw, 40px);
   font-weight: 900;
   color: var(--cyan-bright);
-  text-shadow: 1.5px 1.5px 0 rgba(255,255,255,.85),
-              0 0 8px rgba(126,231,224,.35);
+  text-shadow: none;
+  -webkit-text-stroke: 1px rgba(225,255,251,.9);
+  paint-order: stroke fill;
   cursor: pointer;
 }
 .tile.empty {
@@ -108,7 +109,7 @@ body {
 }
 @keyframes missRed {
   0%, 100% { color: var(--cyan-bright); }
-  50% { color: var(--miss-red); text-shadow: 1.5px 1.5px 0 rgba(255,255,255,.5); }
+  50% { color: var(--miss-red); }
 }
 
 /* ---- 帮助亮光(复刻 AnswerNode.Light):
