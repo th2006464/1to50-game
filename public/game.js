@@ -135,12 +135,15 @@ document.addEventListener("pointerdown", () => {
     if (actx.state === "suspended") actx.resume();
   } catch (e) { /* 音频不可用时继续游戏 */ }
 }, { once: true });
-const sndHit  = () => beep(880, 0.09, "triangle");       // 原版 Play(1)
-const sndMiss = () => beep(160, 0.15, "square", 0.08);
-const sndWin  = () => {                                   // 原版 GameOver → Play(6) 结算音
-  beep(523, .14); setTimeout(()=>beep(659,.14), 150);
-  setTimeout(()=>beep(784,.14), 300); setTimeout(()=>beep(1047,.4), 450);
-};
+// 原版 APK 中的音效；每次创建播放实例以支持连续点击。
+function playSound(name) {
+  if (!settings.sound) return;
+  const audio = new Audio(`/sounds/${name}.mp3`);
+  audio.play().catch(() => {});
+}
+const sndHit = () => playSound("o");
+const sndMiss = () => playSound("x");
+const sndWin = () => playSound("end");
 
 /* ---------- 工具 ---------- */
 function randUnused(lo, hi) {              // 原版:循环取随机直到 UseNumber 未用
@@ -269,7 +272,7 @@ async function readyCountdown() {
     countdownEl.classList.remove("show");
     void countdownEl.offsetWidth;
     countdownEl.classList.add("show");
-    beep(s === "GO!" ? 990 : 660, 0.1, "triangle");
+    playSound(s === "GO!" ? "go" : "ready");
     await new Promise((r) => setTimeout(r, 800));
   }
   countdownEl.classList.remove("show");
