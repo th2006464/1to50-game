@@ -6,9 +6,6 @@
 :root {
   --bg: #14323d;
   --bg-deep: #0e2630;
-  --tile-top: #37a394;
-  --tile-bot: #2f8f8c;
-  --tile-border: #1f635f;
   --tile-empty: #0e2630;
   --ink: #eafffb;
   --cyan: #7ee7e0;
@@ -67,29 +64,36 @@ body {
   aspect-ratio: 1;
 }
 .tile {
+  --cut-corners: polygon(12% 0, 88% 0, 100% 12%, 100% 88%, 88% 100%, 12% 100%, 0 88%, 0 12%);
+  --tile-ink: #d4fff4;
   position: relative;
-  background: linear-gradient(var(--tile-top), var(--tile-bot));
-  border: 3px solid var(--tile-border);
-  border-radius: 18%;
-  box-shadow: inset 0 2px 3px rgba(255,255,255,.22),
-              inset 0 -3px 4px rgba(0,0,0,.28);
-  display: flex; align-items: center; justify-content: center;
-  font-size: clamp(24px, 8vw, 40px);
-  font-weight: 900;
-  color: var(--cyan-bright);
-  text-shadow: none;
-  -webkit-text-stroke: 1px rgba(225,255,251,.9);
-  paint-order: stroke fill;
+  isolation: isolate;
+  display: grid;
+  place-items: center;
   cursor: pointer;
 }
-.tile.empty {
-  background: var(--tile-empty);
-  border-color: #0b1f28;
-  box-shadow: inset 0 2px 5px rgba(0,0,0,.5);
-  cursor: default;
-  text-shadow: none;
+.tile::before, .tile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  clip-path: var(--cut-corners);
+  pointer-events: none;
 }
-.tile .num { pointer-events: none; }
+.tile::before { background: #418c83; z-index: -2; }
+.tile::after { inset: 2px; background: #174a46; z-index: -1; }
+.tile.empty { cursor: default; }
+.tile.empty::before { background: #274d50; }
+.tile.empty::after { background: var(--tile-empty); }
+.tile .num {
+  font-family: system-ui, sans-serif;
+  font-size: clamp(18px, 7vw, 38px);
+  font-weight: 900;
+  font-style: italic;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--tile-ink);
+  pointer-events: none;
+}
 
 /* ReMake 动画(复刻原版 AnswerNode.ReMake 序列):
    0.4s 放大到1.3并淡出 → 缩到0 → 0.15s 弹回;动画结束恒为 scale(1) */
@@ -109,25 +113,20 @@ body {
   75%  { transform: translateX(4px); }
 }
 @keyframes missRed {
-  0%, 100% { color: var(--cyan-bright); }
+  0%, 100% { color: var(--tile-ink); }
   50% { color: var(--miss-red); }
 }
 
-/* ---- 帮助亮光(复刻 AnswerNode.Light):
-   叠加光层 inset:0 不外扩;1s 循环呼吸(0.5s 淡入放大至 1.05 → 0.5s 淡出);
-   格子实际尺寸不变,点中后由 JS 移除。 ---- */
+/* 提示光在数字后方独立呼吸，数字与格子尺寸保持稳定。 */
 .tile.help::after {
-  content: ""; position: absolute; inset: 0;
-  border-radius: inherit;
-  background: rgba(159,245,239,.48);
-  box-shadow: inset 0 0 0 2px rgba(200,255,250,.8);
   animation: lightPulse 1s ease-in-out infinite;
-  pointer-events: none;
 }
 @keyframes lightPulse {
-  0%   { opacity: 0; transform: scale(1); }
-  50%  { opacity: 1; transform: scale(1.05); }   /* 原版 ScaleModifier 1.0→1.05 */
-  100% { opacity: 0; transform: scale(1); }
+  0%, 100% { background: #174a46; }
+  50% { background: #367b68; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tile.help::after { animation: none; background: #367b68; }
 }
 
 /* ---- 问题队列(原版:亮青大框当前目标 + 青色空心后续数字) ---- */
