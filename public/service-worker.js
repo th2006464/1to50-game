@@ -1,5 +1,5 @@
 // 1to50 service worker:静态资源缓存优先,/api 永远走网络
-const CACHE = "1to50-v5";
+const CACHE = "1to50-v6";
 const ASSETS = ["/", "/index.html", "/style.css", "/game.js", "/icons/icon.svg", "/manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
