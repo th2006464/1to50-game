@@ -16,6 +16,7 @@
     <div id="timer">0.00</div>
     <div id="hud-btns">
       <button id="btn-rank" title="世界排行榜">🏆</button>
+      <button id="btn-settings" title="设置">⚙️</button>
       <button id="btn-restart" title="重新开始">↻</button>
     </div>
   </header>
@@ -35,7 +36,39 @@
       <div id="go-stars"></div>
       <div id="go-record"></div>
       <div id="go-rank"></div>
-      <button id="btn-again">再来一局</button>
+      <div id="go-name-row">
+        <input id="go-name-input" maxlength="16" placeholder="上榜昵称">
+        <button id="btn-submit-name">上榜</button>
+      </div>
+      <div id="go-btns">
+        <button id="btn-again">再来一局</button>
+        <button id="btn-menu">回菜单</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="menu">
+    <div id="menu-title">1<span>to</span>50</div>
+    <div id="menu-best-label">本地最佳 <b id="menu-best">--.--</b> s</div>
+    <button id="btn-menu-start">开 始</button>
+    <div id="menu-row">
+      <button id="btn-menu-rank">🏆 排行榜</button>
+      <button id="btn-menu-settings">⚙️ 设置</button>
+    </div>
+  </div>
+
+  <div id="settings-modal">
+    <div id="settings-panel">
+      <div id="settings-title">⚙️ 设置</div>
+      <div class="set-row">
+        <span>音效</span>
+        <div class="toggle" id="toggle-sound"></div>
+      </div>
+      <div class="set-row">
+        <span>震动</span>
+        <div class="toggle" id="toggle-vibration"></div>
+      </div>
+      <button id="btn-settings-close">关闭</button>
     </div>
   </div>
 

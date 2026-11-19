@@ -40,8 +40,20 @@ GameScene / AnswerNode / QuestionNode / QuestionMgr / DataMgr / TimeScore / Star
 ### TimeScore — ev_2d36aa54…
 - 6 个数字位:Sec100/Sec10/Sec1 + 小数点 + MilliSec10/MilliSec1 → 秒(最多3位).百分秒(2位),向上计时
 
+### DataMgr — ev_34bb9937…
+- 设置项字段:`m_bSound`(音效开关)、`m_bVibration`(震动开关),经 `LoadData()/SaveData()` 持久化
+- `onSceneTouchEvent` 中震动前检查 `m_bVibration`;音效播放受 `m_bSound` 约束
+
+### DataMgr.GetStarCount — ev_b8fafc6c…(逐字还原)
+- >65s=0星;>60=1;>55=2;>50=3;>45=4;>40=5;>35=6;>30=7;>25=8;>20=9;≤20s=10星
+
+### 视觉风格 — assets/Resources/game.png(仅取色参考,未复制资源)
+- 米白底 ≈#F7F4EC;格子珊瑚红渐变 ≈#F97070→#E85A5A、深红描边 ≈#D94040、大圆角、果冻质感
+- 数字深色带白高光(气泡字);当前目标青色框 ≈#4DE8D8 浅青底;后续队列为青色空心描边字
+- 金星 ≈#FFC93C
+
 ## 推断项(无直接证据,复刻时为设计选择)
 
-- 帮助高亮触发时长(Tick 内逻辑未反编译,取 5s)
-- 星星数量阈值(StarBox/StarNode 阈值未反编译,取 <15s=3星 / <25s=2星 / 其余1星)
 - 音效使用 WebAudio 合成音,未提取原版权益资源(版权原因刻意不复刻)
+- 原版 `AnswerNode.Light()`/`HelpOn` 的帮助高亮触发条件未反编译;复刻早期版本曾按"停顿 5 秒高亮目标"实现,因观感异常(格子看似变大)且无证据支撑,已移除
+

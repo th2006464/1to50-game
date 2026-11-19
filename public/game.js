@@ -5,14 +5,40 @@
  *  - 目标队列:从 1 开始,初始 5 个,答一补一       (GameScene.AddQuestion / InitData)
  *  - 答错:Miss 闪烁 + 震动 80ms                  (onSceneTouchEvent)
  *  - 计时:向上,格式 秒.百分秒                    (TimeScore: Sec100..1 . MilliSec10..1)
- *  - 胜利:点到 50 → GameOver(true) → 3s 后结算   (GameScene.GameOver)
- * 未取证的设计选择:帮助高亮时长(5s)、星星阈值、音效(合成音)。
+ *  - 胜利:点到 50 → GameOver(true) → 播放结算音 → 3s 后弹框 (GameScene.GameOver → Play(6))
+ *  - 设置:音效/震动开关,持久化                    (DataMgr.m_bSound/m_bVibration + LoadData/SaveData)
+ *  - 星星:>65s=0,每快5s+1,≤20s=10                 (DataMgr.GetStarCount,逐字还原)
+ *  - 主菜单:原版 MainScene,开始前可准备,点了才倒计时
+ * 未取证的设计选择:音效音色(WebAudio 合成)。
+ * 注:早期版本的"停顿高亮目标格"系无证据推断,且观感异常(格子看似变大),已移除。
  */
 "use strict";
 
 const SIZE = 5, TOTAL = 50, TARGET_QUEUE_LEN = 5;
-const HELP_DELAY = 5.0;          // 秒无操作后高亮目标(推断值)
-const STAR_3 = 15, STAR_2 = 25;  // 星星阈值秒(推断值)
+
+/* 星星数(逐字复刻 DataMgr.GetStarCount):>65→0,每快5秒+1,≤20→10 */
+function getStarCount(t) {
+  if (t > 65) return 0;
+  if (t > 60) return 1;
+  if (t > 55) return 2;
+  if (t > 50) return 3;
+  if (t > 45) return 4;
+  if (t > 40) return 5;
+  if (t > 35) return 6;
+  if (t > 30) return 7;
+  if (t > 25) return 8;
+  return t > 20 ? 9 : 10;
+}
+
+/* ---------- 设置(对应原版 DataMgr.m_bSound / m_bVibration + LoadData/SaveData) ---------- */
+const settings = {
+  sound: localStorage.getItem("1to50.sound") !== "0",
+  vibration: localStorage.getItem("1to50.vibration") !== "0",
+};
+function saveSettings() {
+  localStorage.setItem("1to50.sound", settings.sound ? "1" : "0");
+  localStorage.setItem("1to50.vibration", settings.vibration ? "1" : "0");
+}
 
 const $ = (id) => document.getElementById(id);
 const boardEl = $("board"), timerEl = $("timer"), overlayEl = $("overlay");
@@ -27,7 +53,7 @@ let queue = [];          // 问题节点 {value, answered}(原版 m_pQuestion)
 let nextNumber = 1;      // 原版 m_iNextNumber
 let playing = false;
 let timeStart = 0, timeFrozen = 0;
-let lastHitAt = 0, helpShown = false;
+let lastHitAt = 0;   // 保留字段便于后续复用(如统计节奏),不驱动任何 UI
 let best = parseFloat(localStorage.getItem("1to50.best")) || null;
 
 /* ---------- 云端排行(原版 RankWorldLayer;本地 best 对应 RankLocalLayer) ---------- */
@@ -37,11 +63,22 @@ const clientId =
   localStorage.getItem("1to50.clientId");
 
 async function submitScore(timeSeconds) {
-  let name = localStorage.getItem("1to50.name");
-  if (!name) {
-    name = (prompt("上榜昵称(最多16字):", "匿名玩家") || "匿名玩家").slice(0, 16);
-    localStorage.setItem("1to50.name", name);
-  }
+  const saved = localStorage.getItem("1to50.name");
+  if (saved) return doSubmit(saved, timeSeconds);
+  // 首次通关:结算框内输入昵称再上榜(避免被 webview 拦截的 prompt)
+  $("go-name-row").classList.add("show");
+  $("go-name-input").value = "";
+  return new Promise((resolve) => {
+    $("btn-submit-name").onclick = async () => {
+      const v = $("go-name-input").value.trim().slice(0, 16) || "匿名玩家";
+      localStorage.setItem("1to50.name", v);
+      $("go-name-row").classList.remove("show");
+      await doSubmit(v, timeSeconds);
+      resolve();
+    };
+  });
+}
+async function doSubmit(name, timeSeconds) {
   try {
     const r = await fetch("/api/score", {
       method: "POST",
@@ -68,6 +105,7 @@ async function showLeaderboard() {
 /* ---------- 音效(WebAudio 合成,替代原版 SoundModule) ---------- */
 let actx = null;
 function beep(freq, dur, type = "sine", gain = 0.15) {
+  if (!settings.sound) return;              // 原版 m_bSound
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
     const o = actx.createOscillator(), g = actx.createGain();
@@ -80,7 +118,10 @@ function beep(freq, dur, type = "sine", gain = 0.15) {
 }
 const sndHit  = () => beep(880, 0.09, "triangle");       // 原版 Play(1)
 const sndMiss = () => beep(160, 0.15, "square", 0.08);
-const sndWin  = () => { beep(660, .12); setTimeout(()=>beep(880,.12),140); setTimeout(()=>beep(1100,.25),300); }; // 原版 Play(6)
+const sndWin  = () => {                                   // 原版 GameOver → Play(6) 结算音
+  beep(523, .14); setTimeout(()=>beep(659,.14), 150);
+  setTimeout(()=>beep(784,.14), 300); setTimeout(()=>beep(1047,.4), 450);
+};
 
 /* ---------- 工具 ---------- */
 function randUnused(lo, hi) {              // 原版:循环取随机直到 UseNumber 未用
@@ -132,7 +173,7 @@ function renderQueue() {
 function initGame() {
   tiles = []; used = new Array(TOTAL + 2).fill(false);
   queue = []; nextNumber = 1;
-  playing = false; timeFrozen = 0; helpShown = false;
+  playing = false; timeFrozen = 0;
   boardEl.innerHTML = "";
   for (let i = 0; i < SIZE * SIZE; i++) {
     const el = document.createElement("div");
@@ -158,8 +199,7 @@ function onTap(tile) {
 
   if (tile.value === q.value) {
     q.answered = true;
-    lastHitAt = now(); helpShown = false;
-    clearHelp();
+    lastHitAt = now();
 
     const isLast = q.value === TOTAL;
     const nt = tile.value;
@@ -180,20 +220,8 @@ function onTap(tile) {
     void tile.el.offsetWidth;
     tile.el.classList.add("miss");
     sndMiss();
-    if (navigator.vibrate) navigator.vibrate(80);   // 原版 vibrate(80ms)
+    if (settings.vibration && navigator.vibrate) navigator.vibrate(80);   // 原版 m_bVibration + 80ms
   }
-}
-
-/* ---------- 帮助高亮(推断行为) ---------- */
-function clearHelp() {
-  document.querySelectorAll(".tile.help").forEach((t) => t.classList.remove("help"));
-}
-function maybeHelp() {
-  if (!playing || helpShown || !queue.length) return;
-  if (now() - lastHitAt < HELP_DELAY) return;
-  const q = currentQuestion();
-  const hit = tiles.find((t) => t.value === q.value);
-  if (hit) { hit.el.classList.add("help"); helpShown = true; }
 }
 
 /* ---------- 倒计时(复刻 Ready1/2/3/Start) ---------- */
@@ -219,8 +247,7 @@ async function readyCountdown() {
 function gameOver() {
   playing = false;
   timeFrozen = now() - timeStart;
-  sndWin();
-  clearHelp();
+  sndWin();                       // 原版 GameOver → SoundModule.Play(6)
 
   const isRecord = best === null || timeFrozen < best;
   if (isRecord) {
@@ -229,16 +256,17 @@ function gameOver() {
     bestEl.textContent = fmt(best);
   }
 
-  // 3 秒后弹结算框(对应原版 DelayModifier(3.0f));同时提交世界排行
+  // 3 秒后弹结算框(对应原版 DelayModifier(3.0f));同时提交世界排行。
+  // 注意:rank 显示的清空必须发生在提交之前,否则会覆盖迟到的排名结果。
+  $("go-rank").textContent = "";
   submitScore(timeFrozen);
   setTimeout(() => {
     $("go-text").textContent = "FINISH!";
     $("go-time").textContent = `${fmt(timeFrozen)} s`;
-    const stars = timeFrozen < STAR_3 ? 3 : timeFrozen < STAR_2 ? 2 : 1;
+    const stars = getStarCount(timeFrozen);          // 原版 0–10 星
     $("go-stars").innerHTML =
-      (isRecord ? `<span class="star">⭐</span>`.repeat(stars) : "⭐".repeat(stars));
+      "⭐".repeat(stars) + `<span class="star-num">${stars}/10</span>`;
     $("go-record").textContent = isRecord ? "新纪录!" : "";
-    $("go-rank").textContent = "";
     overlayEl.classList.add("show");
     countdownEl.classList.remove("show");
     gameoverEl.classList.add("show");
@@ -249,15 +277,45 @@ function gameOver() {
 setInterval(() => {
   if (playing) {
     timerEl.textContent = fmt(elapsed());
-    maybeHelp();
   }
 }, 31);   // ≈1/30s,匹配百分秒显示刷新
 
+/* ---------- 主菜单(对应原版 MainScene:先准备,点开始才倒计时) ---------- */
+function showMenu() {
+  playing = false;
+  overlayEl.classList.remove("show");
+  $("menu").classList.add("show");
+  $("menu-best").textContent = best ? fmt(best) : "--.--";
+  initGame();                       // 菜单背后先摆好棋盘,开始后无需等待
+}
+
 /* ---------- 入口 ---------- */
+$("btn-menu-start").addEventListener("click", () => {
+  $("menu").classList.remove("show");
+  readyCountdown();
+});
+$("btn-menu").addEventListener("click", showMenu);          // 结算框"回菜单"
 $("btn-restart").addEventListener("click", () => { initGame(); readyCountdown(); });
 $("btn-again").addEventListener("click", () => { initGame(); readyCountdown(); });
 $("btn-rank").addEventListener("click", showLeaderboard);
+$("btn-menu-rank").addEventListener("click", showLeaderboard);
 $("btn-rank-close").addEventListener("click", () => $("rank-modal").classList.remove("show"));
 
-initGame();
-readyCountdown();
+/* 设置弹窗:音效 / 震动(对应原版 DataMgr.m_bSound / m_bVibration) */
+$("btn-settings").addEventListener("click", () => $("settings-modal").classList.add("show"));
+$("btn-menu-settings").addEventListener("click", () => $("settings-modal").classList.add("show"));
+$("btn-settings-close").addEventListener("click", () => $("settings-modal").classList.remove("show"));
+function bindToggle(id, key) {
+  const el = $(id);
+  el.classList.toggle("on", settings[key]);
+  el.addEventListener("click", () => {
+    settings[key] = !settings[key];
+    el.classList.toggle("on", settings[key]);
+    saveSettings();
+    if (key === "sound" && settings.sound) beep(880, 0.08, "triangle");  // 开启时给个反馈音
+  });
+}
+bindToggle("toggle-sound", "sound");
+bindToggle("toggle-vibration", "vibration");
+
+showMenu();
